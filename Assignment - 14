@@ -1,0 +1,121 @@
+class InvalidField(Exception):
+    pass
+
+class Student:
+    def __init__(self, name = None, age = None, score = None):
+        self.name = name
+        self.id = None
+        self.age = age
+        self.score = score
+        
+            
+    @staticmethod
+    def filter(**kwargs):    
+        final = []
+        instance_list = ['name', 'age', 'id', 'score']
+        
+        for key, value in kwargs.items():
+            if "__" in key:
+                field, operation = key.split('__')
+                
+                if field not in instance_list:
+                    raise InvalidField
+                else:
+                    dict_items = { "lt" : '<' , "lte" : "<=", "gt" : ">" , "gte" : ">=", "neq" : "!="}
+                    
+                    if operation in dict_items:
+                        if field != "name":
+                            required_condition = "{} {} {}".format(field,dict_items[operation],value)
+                        else:
+                            required_condition = f"{field} <> \'{value}\'"
+                    
+                    elif operation == "contains":
+                        required_condition = "{} like \'%{}%\'".format(field,value)
+           
+                    elif operation == "in":
+                        value = tuple(value)
+                        required_condition = f"{field} IN {value}"
+                    
+            else:
+                if key not in instance_list:
+                    raise InvalidField
+                else:
+                    if key != 'name':
+                        required_condition = f"{key} = {value}"
+                    else:
+                        required_condition = f"{key} = \'{value}\'"
+        
+            
+            final.append(required_condition)
+            
+        final = ' and '.join(final)
+        return final
+        
+        
+    @classmethod
+    def aggregations(cls,aggregation, field = "None", **kwargs):
+        instance_list = ['name', 'age', 'id', 'score']
+        if field == 'None':
+            query = "select count(*) from student"
+        else:
+            if len(kwargs) > 0:
+                out = cls.filter(**kwargs)
+                query = "select {}({}) from student where {}".format(aggregation,field,out)
+            else:
+                if field not in instance_list:
+                    raise InvalidField
+                else:
+                    query = "select {}({}) from student".format(aggregation,field)
+        result = read_data(query)
+        return result[0][0]
+        
+    
+    @classmethod
+    def count(cls, field = "None", **kwargs):
+        output = cls.aggregations("Count", field, **kwargs)
+        return output
+    
+    @classmethod
+    def min(cls, field, **kwargs):
+        output = cls.aggregations("MIN", field, **kwargs)
+        return output
+        
+        
+    @classmethod
+    def max(cls, field, **kwargs):
+        output = cls.aggregations("MAX", field, **kwargs)
+        return output
+        
+    @classmethod
+    def sum(cls, field, **kwargs):
+        output = cls.aggregations("SUM", field, **kwargs)
+        return output
+        
+    @classmethod
+    def avg(cls, field, **kwargs):
+        output = cls.aggregations("AVG", field, **kwargs)
+        return output
+            
+def write_data(sql_query):
+ 	import sqlite3
+ 	connection = sqlite3.connect("dbms/dbms_resources/students_db.sqlite3")
+ 	crsr = connection.cursor() 
+ 	crsr.execute("PRAGMA foreign_keys = on;") 
+ 	crsr.execute(sql_query) 
+ 	ans = crsr.fetchall()  
+ 	connection.commit() 
+ 	connection.close()
+    
+def read_data(sql_query):
+	import sqlite3
+	connection = sqlite3.connect("dbms/dbms_resources/students_db.sqlite3")
+	crsr = connection.cursor() 
+	crsr.execute(sql_query) 
+	ans = crsr.fetchall()  
+	connection.close() 
+	return ans
+	
+	
+min_age = Student.min('age', age__gt=18, age__lt=21)
+print(min_age)
+     
